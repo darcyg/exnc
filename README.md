@@ -1,0 +1,2 @@
+# linuxosi
+lsd linux osi
