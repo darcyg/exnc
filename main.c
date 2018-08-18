@@ -37,13 +37,16 @@ static int usage(char *app);
 static int write_pid();
 static void write_version(const char *verfile);
 
+const char *global_get_self_ip();
 
 static int ds_child_died = 0;
 static int port = 8888;
 static int use_cmd = 0;
 struct timer_head th = {.first = NULL};
-static char *version_path = "/etc/config/dusun/exnc/version";
-static char *pid_file = "/var/run/exnc.pid";
+static char *version_path = "/tmp/etc/config/dusun/exnc/version";
+static char *pid_file = "/tmp/var/run/exnc.pid";
+
+static char *wan_eth = "eth0";
 
 int main(int argc, char *argv[]) {
 	sig_set();
@@ -55,6 +58,7 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
+	system("mkdir -p /tmp/var/run/");
 	if (write_pid() != 0) {
 		log_err("%s has startted!", argv[0]);
 		return -2;
@@ -109,13 +113,16 @@ static void sig_set() {
 
 static int parse_args(int argc, char *argv[]) {
 	int ch = 0;
-	while((ch = getopt(argc,argv,"P:C"))!= -1){
+	while((ch = getopt(argc,argv,"P:Cd:"))!= -1){
 		switch(ch){
 			case 'P':
 				port = atoi(optarg);
 				break;
 			case 'C':
 				use_cmd = 1;
+				break;
+			case 'd':
+				wan_eth = optarg;
 				break;
 			default:
 				return -1;
@@ -192,7 +199,8 @@ static void	run_main() {
 	}
 
 	exnc_svr_init(&th, &fet);
-	web_init(&th, &fet, "192.168.10.6", 18080, "/home/au/all/gwork/tmp/exnc/www");
+	//web_init(&th, &fet, "114.215.195.44", 8383, "/home/dyx/exnc-master/www");
+	web_init(&th, &fet, global_get_self_ip(), 8383, "/home/dyx/exnc-master/www");
 
 	timer_set(&th, &tr, 10);
 	log_info("[%s] %d : goto main loop", __func__, __LINE__);
@@ -203,4 +211,24 @@ static void	run_main() {
 			log_warn("poll error: %m");
 		}
 	}
+}
+
+
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
+const char *global_get_self_ip() {
+	static char ip[32]={0};  
+
+	int inet_sock;  
+	struct ifreq ifr;  
+
+	inet_sock = socket(AF_INET, SOCK_DGRAM, 0);  
+	strcpy(ifr.ifr_name, wan_eth);  
+	ioctl(inet_sock, SIOCGIFADDR, &ifr);  
+	strcpy(ip, inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));  
+	return ip;
 }

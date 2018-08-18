@@ -2,10 +2,12 @@
 
 
 test() {
+	local ip="114.215.195.44"
+	local port="8383"
 	local logfile="/tmp/test.log"
 
 	echo `date` > $logfile
-	wget http://192.168.10.6:18080/dl/a.tar.gz -P /tmp/
+	wget http://$ip:$port/dl/a.tar.gz -P /tmp/
 	echo `date` >> $logfile
 }
 
