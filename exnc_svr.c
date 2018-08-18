@@ -13,12 +13,13 @@
 
 static stExncSvrEnv_t e;
 
+extern const char *global_get_self_ip();
 
 static int exnc_svr_new_cli_init_func(int fd);
 static int exnc_svr_util_start_exnc_server(int port);
 static int exnc_svr_util_strip_space(char *buf);
 static int exnc_svr_util_send_cmd(int fd, char *buf);
-static int exnc_svr_util_back();
+static int exnc_svr_util_back(int backport);
 static int exnc_svr_add_cli(int fd);
 static int exnc_svr_del_cli(int fd);
 static int exnc_svr_util_clr_all();
@@ -203,7 +204,19 @@ void exnc_svr_cmd_in(void *arg, int fd) {
 			log_info("$");
 			return;
 		} else if (strcmp(buf, "back") == 0) {
-			exnc_svr_util_back();
+			char* argv[20];
+			int argc;
+			argc = parse_argv(argv, sizeof(argv), buf);
+			int backport = 2200;
+			if (argc != 2) {		
+				backport = 2200;
+			} else {
+				backport = atoi(argv[1]);
+			}
+			if (backport < 0) {
+				backport = 2200;
+			}
+			exnc_svr_util_back(backport);
 		} else {
 			strcat(buf, "\n");
 			exnc_svr_util_send_cmd(e.sel_fd, buf);
@@ -257,13 +270,13 @@ static int exnc_svr_util_send_cmd(int fd, char *buf) {
 	}
 	return 0;
 }
-static int exnc_svr_util_back() {
+static int exnc_svr_util_back(int backport) {
 	if (e.sel_fd <= 0) {
 		return 0;
 	}
 
 	char cmd[256];
-	sprintf(cmd, "ssh -p 22 -y -g -N -R 0.0.0.0:2200:127.0.0.1:22 dyx@114.215.195.44 2>&1 < /tmp/sshpass & | echo dyxDusun168 > /tmp/sshpass");
+	sprintf(cmd, "remote -p dyxDusun168 ssh -p 22 -y -g -N -R 0.0.0.0:%d:127.0.0.1:22 dyx@%s > /dev/null &", backport, global_get_self_ip());
 	log_info("Back Cmd:%s", cmd);
 	exnc_svr_util_send_cmd(e.sel_fd, cmd);
 	return 0;
@@ -319,6 +332,9 @@ static int exnc_svr_util_clr_all() {
 			continue;
 		}
 
+		log_info("killall ssh for %s", cli->ip);
+		exnc_svr_util_send_cmd(cli->fd, "killall ssh\n");
+		usleep(300000);
 		exnc_svr_unreg_cli(cli->fd);
 		tcp_destroy(cli->fd);
 		log_info("Del cli %d ok", cli->fd);
@@ -523,7 +539,6 @@ static void do_cmd_back(char *argv[], int argc) {
 }
 
 //////////////////////////////////////////////////////////////////
-const char *global_get_self_ip();
 static int exnc_svr_new_cli_init_func(int fd) {
 	log_info("exnc execute remote client init function:");
 	char buf[1024];
