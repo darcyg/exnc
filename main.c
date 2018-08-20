@@ -46,12 +46,23 @@ struct timer_head th = {.first = NULL};
 static char *version_path = "/tmp/etc/config/dusun/exnc/version";
 static char *pid_file = "/tmp/var/run/exnc.pid";
 
+#define MAX_SIZE 1024
+static char current_absolute_path[MAX_SIZE];
+int parse_rootdir(char path[MAX_SIZE]);
+char *get_rootdir();
+char *get_wwwpath();
+void make_wwwpath();
+
 static char *wan_eth = "eth0";
+
 
 int main(int argc, char *argv[]) {
 	sig_set();
 
+
 	log_init(argv[0], LOG_OPT_DEBUG | LOG_OPT_CONSOLE_OUT | LOG_OPT_TIMESTAMPS | LOG_OPT_FUNC_NAMES);
+
+	parse_rootdir(current_absolute_path);
 
 	if (parse_args(argc, argv) != 0) {
 		usage(argv[0]);
@@ -199,8 +210,12 @@ static void	run_main() {
 	}
 
 	exnc_svr_init(&th, &fet);
+
+	log_info("www path is : [%s]", get_wwwpath());
+	make_wwwpath();
 	//web_init(&th, &fet, "114.215.195.44", 8383, "/home/dyx/exnc-master/www");
-	web_init(&th, &fet, global_get_self_ip(), 8383, "/home/dyx/exnc-master/www");
+	//web_init(&th, &fet, global_get_self_ip(), 8383, "/home/dyx/exnc-master/www");
+	web_init(&th, &fet, global_get_self_ip(), 8383, get_wwwpath());
 
 	timer_set(&th, &tr, 10);
 	log_info("[%s] %d : goto main loop", __func__, __LINE__);
@@ -231,4 +246,42 @@ const char *global_get_self_ip() {
 	ioctl(inet_sock, SIOCGIFADDR, &ifr);  
 	strcpy(ip, inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));  
 	return ip;
+}
+
+
+int parse_rootdir(char path[MAX_SIZE]) {
+	//获取当前程序绝对路径
+	int cnt = readlink("/proc/self/exe", path, MAX_SIZE);
+	if (cnt < 0 || cnt >= MAX_SIZE){
+		log_err("Get Exe Dir Error");
+		path[0] = 0;
+		return -1;
+	}
+
+	//获取当前目录绝对路径，即去掉程序名
+	int i;
+	for (i = cnt; i >=0; --i) {
+		if (path[i] == '/') {
+			path[i] = '\0';
+			break;
+		}
+	}
+
+	log_info("current absolute path:%s", path);
+	return 0;
+}
+char *get_rootdir() {
+	return current_absolute_path;
+}
+char *get_wwwpath() {
+	static char www_path[256] = {0};
+	if (www_path[0] == 0) {
+		sprintf(www_path, "%s/www", get_rootdir());
+	}
+	return www_path;
+}
+void make_wwwpath() {
+	char cmd[512];
+	sprintf(cmd, "mkdir -p %s", get_wwwpath());
+	system(cmd);
 }
